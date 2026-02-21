@@ -86,9 +86,14 @@ def _run_generation(
     tokens = 0
 
     if do_stream and fmt != "json":
-        with output.status("Connecting..."):
-            chunks = asyncio.run(_get_stream(prov, user_prompt, tpl.system_prompt, temperature, max_tokens))
-        content = output.stream_plain(chunks) if fmt == "plain" else output.stream_markdown(chunks)
+        # Stream iterator must be created and consumed in the same event loop,
+        # so we pass the provider directly and let output handle asyncio.run().
+        chunks = prov.stream(user_prompt, tpl.system_prompt, temperature, max_tokens)
+        content = (
+            output.run_stream_plain(chunks)
+            if fmt == "plain"
+            else output.run_stream_markdown(chunks)
+        )
     else:
         with output.status("Generating..."):
             result = asyncio.run(
@@ -108,11 +113,6 @@ def _run_generation(
         output.save_to_file(content, output_file)
     if copy:
         output.copy_to_clipboard(content)
-
-
-async def _get_stream(prov, prompt, system_prompt, temperature, max_tokens):
-    """Get the async iterator - we need this wrapper for the stream."""
-    return prov.stream(prompt, system_prompt, temperature, max_tokens)
 
 
 # ── Subcommands ─────────────────────────────────────────────────

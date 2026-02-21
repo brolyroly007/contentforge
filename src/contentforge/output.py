@@ -42,30 +42,37 @@ def render_json(content: str, provider: str, model: str, tokens: int) -> None:
     console.print_json(json.dumps(data))
 
 
-def stream_markdown(chunks: AsyncIterator[str]) -> str:
-    """Stream chunks with live markdown rendering. Returns full content."""
+def run_stream_markdown(chunks: AsyncIterator[str]) -> str:
+    """Stream chunks with live markdown rendering. Returns full content.
+
+    Runs the entire async iteration inside a single asyncio.run() call
+    so the async iterator is created and consumed in the same event loop.
+    """
     collected: list[str] = []
 
-    async def _collect() -> None:
+    async def _consume() -> None:
         with Live(Markdown(""), console=console, refresh_per_second=8) as live:
             async for chunk in chunks:
                 collected.append(chunk)
                 live.update(Markdown("".join(collected)))
 
-    asyncio.run(_collect())
+    asyncio.run(_consume())
     return "".join(collected)
 
 
-def stream_plain(chunks: AsyncIterator[str]) -> str:
-    """Stream chunks as plain text. Returns full content."""
+def run_stream_plain(chunks: AsyncIterator[str]) -> str:
+    """Stream chunks as plain text. Returns full content.
+
+    Runs the entire async iteration inside a single asyncio.run() call.
+    """
     collected: list[str] = []
 
-    async def _collect() -> None:
+    async def _consume() -> None:
         async for chunk in chunks:
             collected.append(chunk)
             console.print(chunk, end="")
 
-    asyncio.run(_collect())
+    asyncio.run(_consume())
     console.print()  # newline at end
     return "".join(collected)
 
