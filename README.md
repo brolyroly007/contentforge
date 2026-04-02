@@ -9,6 +9,14 @@
 
 Generate blog posts, social media content, emails, ad copy, and more — powered by OpenAI, Gemini, or local Ollama models.
 
+## Highlights
+
+- **Friendly error messages** — API failures show clear messages in Spanish instead of stack traces
+- **Pre-flight validation** — API keys and provider connectivity are checked before generation
+- **Auto-retry on rate limits** — Automatically retries with exponential backoff (up to 3 times)
+- **Safety filter handling** — Gemini blocked responses are handled gracefully
+- **Up-to-date models** — GPT-4.1, Gemini 2.5, o3-mini and more
+
 ## Installation
 
 ```bash
@@ -56,8 +64,8 @@ ContentForge supports three LLM providers:
 
 | Provider | Models | Setup |
 |----------|--------|-------|
-| **OpenAI** | gpt-4o, gpt-4o-mini, gpt-4-turbo | `contentforge config set openai_api_key YOUR_KEY` |
-| **Gemini** | gemini-2.0-flash, gemini-1.5-pro | `contentforge config set gemini_api_key YOUR_KEY` |
+| **OpenAI** | gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3-mini | `contentforge config set openai_api_key YOUR_KEY` |
+| **Gemini** | gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash | `contentforge config set gemini_api_key YOUR_KEY` |
 | **Ollama** | llama3.2, mistral, phi3 (local) | Just have Ollama running locally |
 
 ```bash
@@ -123,6 +131,27 @@ make dev        # Install with dev dependencies
 make test       # Run tests
 make lint       # Run linter
 make format     # Auto-format code
+```
+
+## Error Handling
+
+ContentForge shows friendly error messages instead of stack traces:
+
+```
+Error: API key inválida o expirada. Verifica con: contentforge config show
+```
+
+```
+Error: No se pudo conectar a Ollama. ¿Está corriendo? Ejecuta: ollama serve
+```
+
+```
+Error: Rate limit alcanzado. Reintentando en 2s... (intento 1/3)
+```
+
+If Gemini's safety filter blocks a response, you'll see:
+```
+Error: La respuesta fue bloqueada por el filtro de seguridad de Gemini. Intenta reformular tu solicitud.
 ```
 
 ## License
