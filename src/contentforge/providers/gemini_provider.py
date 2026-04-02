@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import time
 from collections.abc import AsyncIterator
 from typing import ClassVar
 
@@ -72,17 +74,38 @@ class GeminiProvider(BaseProvider):
         temperature: float = 0.7,
         max_tokens: int = 2000,
     ) -> GenerationResult:
+        from google.api_core.exceptions import ResourceExhausted
+
         model = self._get_model(system_prompt)
-        try:
-            response = await model.generate_content_async(
-                prompt,
-                generation_config=self._genai.GenerationConfig(
-                    temperature=temperature,
-                    max_output_tokens=max_tokens,
-                ),
-            )
-        except Exception as exc:
-            raise _handle_gemini_error(exc) from exc
+
+        max_retries = 3
+        last_exc: Exception | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = await model.generate_content_async(
+                    prompt,
+                    generation_config=self._genai.GenerationConfig(
+                        temperature=temperature,
+                        max_output_tokens=max_tokens,
+                    ),
+                )
+                break
+            except ResourceExhausted as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                    print(
+                        f"[contentforge] Rate limit alcanzado. "
+                        f"Reintentando en {wait}s ({attempt + 1}/{max_retries})...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise _handle_gemini_error(exc) from exc
+            except Exception as exc:
+                raise _handle_gemini_error(exc) from exc
+        else:
+            raise _handle_gemini_error(last_exc) from last_exc  # type: ignore[arg-type]
 
         # Check if response was blocked by safety filters
         _check_blocked_response(response)

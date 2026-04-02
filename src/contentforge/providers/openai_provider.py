@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import time
 from collections.abc import AsyncIterator
 from typing import ClassVar
 
@@ -58,21 +60,39 @@ class OpenAIProvider(BaseProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-        except (
-            openai.AuthenticationError,
-            openai.RateLimitError,
-            openai.APIConnectionError,
-            openai.APITimeoutError,
-            openai.APIError,
-        ) as exc:
-            raise _handle_openai_error(exc) from exc
+        max_retries = 3
+        last_exc: Exception | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                break
+            except openai.RateLimitError as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                    print(
+                        f"[contentforge] Rate limit alcanzado. "
+                        f"Reintentando en {wait}s ({attempt + 1}/{max_retries})...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise _handle_openai_error(exc) from exc
+            except (
+                openai.AuthenticationError,
+                openai.APIConnectionError,
+                openai.APITimeoutError,
+                openai.APIError,
+            ) as exc:
+                raise _handle_openai_error(exc) from exc
+        else:
+            # All retries exhausted (shouldn't reach here, but just in case)
+            raise _handle_openai_error(last_exc) from last_exc  # type: ignore[arg-type]
 
         choice = response.choices[0]
         tokens = response.usage.total_tokens if response.usage else 0
