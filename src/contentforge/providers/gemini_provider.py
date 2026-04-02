@@ -27,6 +27,26 @@ def _handle_gemini_error(exc: Exception) -> ContentForgeError:
     return ContentForgeError(f"Error de Gemini: {exc}")
 
 
+_BLOCKED_REASONS = {"SAFETY", "RECITATION", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}
+
+_BLOCKED_MSG = (
+    "La respuesta fue bloqueada por el filtro de seguridad de Gemini. "
+    "Intenta reformular tu solicitud."
+)
+
+
+def _check_blocked_response(response) -> None:
+    """Raise ContentForgeError if the Gemini response was blocked."""
+    if not response.candidates:
+        raise ContentForgeError(_BLOCKED_MSG)
+
+    finish_reason = getattr(response.candidates[0], "finish_reason", None)
+    if finish_reason is not None:
+        reason_name = finish_reason.name if hasattr(finish_reason, "name") else str(finish_reason)
+        if reason_name in _BLOCKED_REASONS:
+            raise ContentForgeError(_BLOCKED_MSG)
+
+
 class GeminiProvider(BaseProvider):
     name = "gemini"
     models: ClassVar[list[str]] = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
@@ -64,6 +84,9 @@ class GeminiProvider(BaseProvider):
         except Exception as exc:
             raise _handle_gemini_error(exc) from exc
 
+        # Check if response was blocked by safety filters
+        _check_blocked_response(response)
+
         tokens = 0
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             tokens = getattr(response.usage_metadata, "total_token_count", 0)
@@ -95,8 +118,11 @@ class GeminiProvider(BaseProvider):
             raise _handle_gemini_error(exc) from exc
 
         async for chunk in response:
-            if chunk.text:
-                yield chunk.text
+            try:
+                if chunk.text:
+                    yield chunk.text
+            except (AttributeError, ValueError):
+                continue
 
     def validate(self) -> None:
         if not self._api_key:
