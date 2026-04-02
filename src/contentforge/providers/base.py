@@ -45,6 +45,13 @@ class BaseProvider(ABC):
         """Yield content chunks for streaming."""
         yield ""  # pragma: no cover
 
+    def validate(self) -> None:
+        """Validate that the provider is ready to generate.
+
+        Raises ContentForgeError with a helpful message if not.
+        Should be fast (< 2s).  Subclasses override as needed.
+        """
+
     @abstractmethod
     def is_available(self) -> bool:
         """Check if this provider is configured / reachable."""

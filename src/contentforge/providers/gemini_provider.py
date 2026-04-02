@@ -98,5 +98,12 @@ class GeminiProvider(BaseProvider):
             if chunk.text:
                 yield chunk.text
 
+    def validate(self) -> None:
+        if not self._api_key:
+            raise ContentForgeError(
+                "Gemini API key no configurada. "
+                "Ejecuta: contentforge config set gemini_api_key YOUR_KEY"
+            )
+
     def is_available(self) -> bool:
         return bool(self._api_key)

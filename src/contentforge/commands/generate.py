@@ -79,6 +79,12 @@ def _run_generation(
         output.print_error(str(e))
         raise typer.Exit(1) from None
 
+    try:
+        prov.validate()
+    except ContentForgeError as exc:
+        output.print_error(exc.message)
+        raise typer.Exit(1) from None
+
     output.err_console.print(
         f"[dim]Using {prov.name}/{prov.model} • template: {template_id}[/dim]"
     )

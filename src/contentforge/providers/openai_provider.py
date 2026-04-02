@@ -120,5 +120,12 @@ class OpenAIProvider(BaseProvider):
             if delta.content:
                 yield delta.content
 
+    def validate(self) -> None:
+        if not self.client.api_key:
+            raise ContentForgeError(
+                "OpenAI API key no configurada. "
+                "Ejecuta: contentforge config set openai_api_key YOUR_KEY"
+            )
+
     def is_available(self) -> bool:
         return bool(self.client.api_key)

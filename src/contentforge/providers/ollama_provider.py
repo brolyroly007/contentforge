@@ -109,6 +109,23 @@ class OllamaProvider(BaseProvider):
                 "Respuesta inválida de Ollama. ¿Está corriendo correctamente?"
             ) from exc
 
+    def validate(self) -> None:
+        try:
+            resp = httpx.get(f"{self.base_url}/api/tags", timeout=5.0)
+            resp.raise_for_status()
+        except httpx.ConnectError:
+            raise ContentForgeError(
+                "No se pudo conectar a Ollama. ¿Está corriendo? Ejecuta: ollama serve"
+            ) from None
+        except httpx.TimeoutException:
+            raise ContentForgeError(
+                "Ollama no respondió a tiempo. Verifica que esté corriendo correctamente."
+            ) from None
+        except httpx.HTTPStatusError:
+            raise ContentForgeError(
+                "Ollama respondió con un error. Verifica que esté corriendo correctamente."
+            ) from None
+
     def is_available(self) -> bool:
         try:
             resp = httpx.get(f"{self.base_url}/api/tags", timeout=2.0)
