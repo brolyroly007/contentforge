@@ -5,7 +5,26 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import ClassVar
 
+from contentforge.exceptions import ContentForgeError
 from contentforge.providers.base import BaseProvider, GenerationResult
+
+
+def _handle_gemini_error(exc: Exception) -> ContentForgeError:
+    """Convert a Gemini exception to a ContentForgeError."""
+    try:
+        from google.api_core.exceptions import PermissionDenied, ResourceExhausted
+    except ImportError:
+        return ContentForgeError(f"Error inesperado con Gemini: {exc}")
+
+    if isinstance(exc, PermissionDenied):
+        return ContentForgeError(
+            "API key inválida o expirada. Verifica con: contentforge config show"
+        )
+    if isinstance(exc, ResourceExhausted):
+        return ContentForgeError(
+            "Rate limit alcanzado. Espera unos minutos e intenta de nuevo."
+        )
+    return ContentForgeError(f"Error de Gemini: {exc}")
 
 
 class GeminiProvider(BaseProvider):
@@ -34,13 +53,17 @@ class GeminiProvider(BaseProvider):
         max_tokens: int = 2000,
     ) -> GenerationResult:
         model = self._get_model(system_prompt)
-        response = await model.generate_content_async(
-            prompt,
-            generation_config=self._genai.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            ),
-        )
+        try:
+            response = await model.generate_content_async(
+                prompt,
+                generation_config=self._genai.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+        except Exception as exc:
+            raise _handle_gemini_error(exc) from exc
+
         tokens = 0
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             tokens = getattr(response.usage_metadata, "total_token_count", 0)
@@ -59,14 +82,18 @@ class GeminiProvider(BaseProvider):
         max_tokens: int = 2000,
     ) -> AsyncIterator[str]:
         model = self._get_model(system_prompt)
-        response = await model.generate_content_async(
-            prompt,
-            generation_config=self._genai.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            ),
-            stream=True,
-        )
+        try:
+            response = await model.generate_content_async(
+                prompt,
+                generation_config=self._genai.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                ),
+                stream=True,
+            )
+        except Exception as exc:
+            raise _handle_gemini_error(exc) from exc
+
         async for chunk in response:
             if chunk.text:
                 yield chunk.text

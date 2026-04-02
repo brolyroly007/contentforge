@@ -8,6 +8,7 @@ import typer
 
 from contentforge import output
 from contentforge.config import load_config
+from contentforge.exceptions import ContentForgeError
 from contentforge.providers import get_provider
 from contentforge.templates import get_template
 
@@ -85,29 +86,33 @@ def _run_generation(
     content = ""
     tokens = 0
 
-    if do_stream and fmt != "json":
-        # Stream iterator must be created and consumed in the same event loop,
-        # so we pass the provider directly and let output handle asyncio.run().
-        chunks = prov.stream(user_prompt, tpl.system_prompt, temperature, max_tokens)
-        content = (
-            output.run_stream_plain(chunks)
-            if fmt == "plain"
-            else output.run_stream_markdown(chunks)
-        )
-    else:
-        with output.status("Generating..."):
-            result = asyncio.run(
-                prov.generate(user_prompt, tpl.system_prompt, temperature, max_tokens)
+    try:
+        if do_stream and fmt != "json":
+            # Stream iterator must be created and consumed in the same event loop,
+            # so we pass the provider directly and let output handle asyncio.run().
+            chunks = prov.stream(user_prompt, tpl.system_prompt, temperature, max_tokens)
+            content = (
+                output.run_stream_plain(chunks)
+                if fmt == "plain"
+                else output.run_stream_markdown(chunks)
             )
-        content = result.content
-        tokens = result.tokens_used
-
-        if fmt == "json":
-            output.render_json(content, prov.name, prov.model, tokens)
-        elif fmt == "plain":
-            output.render_plain(content)
         else:
-            output.render_markdown(content, title=tpl.name)
+            with output.status("Generating..."):
+                result = asyncio.run(
+                    prov.generate(user_prompt, tpl.system_prompt, temperature, max_tokens)
+                )
+            content = result.content
+            tokens = result.tokens_used
+
+            if fmt == "json":
+                output.render_json(content, prov.name, prov.model, tokens)
+            elif fmt == "plain":
+                output.render_plain(content)
+            else:
+                output.render_markdown(content, title=tpl.name)
+    except ContentForgeError as exc:
+        output.print_error(exc.message)
+        raise typer.Exit(1) from None
 
     if output_file:
         output.save_to_file(content, output_file)
