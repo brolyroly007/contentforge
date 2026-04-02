@@ -51,9 +51,9 @@ def _check_blocked_response(response) -> None:
 
 class GeminiProvider(BaseProvider):
     name = "gemini"
-    models: ClassVar[list[str]] = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    models: ClassVar[list[str]] = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash") -> None:
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash") -> None:
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)

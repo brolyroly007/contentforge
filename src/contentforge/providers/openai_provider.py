@@ -38,9 +38,9 @@ def _handle_openai_error(exc: Exception) -> ContentForgeError:
 
 class OpenAIProvider(BaseProvider):
     name = "openai"
-    models: ClassVar[list[str]] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"]
+    models: ClassVar[list[str]] = ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "o3-mini"]
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+    def __init__(self, api_key: str, model: str = "gpt-4o") -> None:
         from openai import AsyncOpenAI
 
         self.client = AsyncOpenAI(api_key=api_key)
